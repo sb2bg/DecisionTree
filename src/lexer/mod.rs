@@ -15,11 +15,9 @@ pub mod position;
 lazy_static! {
     static ref TOKEN_MAP: HashMap<&'static str, TokenType> = {
         let mut m = HashMap::new();
-        m.insert("entry", TokenType::HeadNode);
+        m.insert("entry", TokenType::EntryNode);
         m.insert("body", TokenType::BodyNode);
         m.insert("end", TokenType::EndNode);
-        m.insert("true", TokenType::True);
-        m.insert("false", TokenType::False);
         m
     };
 
@@ -32,6 +30,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
     source: &'a str,
     chars: Peekable<Chars<'a>>,
@@ -78,28 +77,28 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Token;
+    type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         return match self.chars.peek() {
             Some(&curr) => {
                 if curr == '"' {
                     self.advance(false);
-                    Some(Token::new(Some(self.generic(Self::str_case)), TokenType::String))
+                    Some(Token::new(Some(self.generic(Self::str_case)), TokenType::String, self.position))
                 } else if curr.is_ascii_digit() {
-                    Some(Token::new(Some(self.generic(Self::num_case)), TokenType::Number))
+                    Some(Token::new(Some(self.generic(Self::num_case)), TokenType::Number, self.position))
                 } else if curr.is_ascii_whitespace() {
                     self.advance(curr == '\n');
                     self.next()
                 } else if let Some(single) = SINGLE_MAP.get(&curr) {
                     self.advance(false);
-                    Some(Token::new(None, *single))
+                    Some(Token::new(None, *single, self.position))
                 } else {
                     let consumed = self.generic(Self::ident_case);
 
                     return match TOKEN_MAP.get(consumed.as_str()) {
-                        Some(ident) => Some(Token::new(None, *ident)),
-                        None => Some(Token::new(Some(self.generic(Self::ident_case)), TokenType::Ident))
+                        Some(ident) => Some(Token::new(None, *ident, self.position)),
+                        None => Some(Token::new(Some(self.generic(Self::ident_case)), TokenType::Ident, self.position))
                     };
                 }
             }
